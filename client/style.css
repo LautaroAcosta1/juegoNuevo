@@ -1,0 +1,67 @@
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+/* Evitar márgenes y scroll */
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;  /* No mostrar scroll */
+    height: 100%;
+    width: 100%;
+    font-family: sans-serif;
+    background-color: #111;
+    color: white;
+  }
+  
+  /* Body usa flex solo para centrar el menú */
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Menú */
+  #menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    background-color: #222;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 10; /* Para que quede encima del canvas */
+    position: relative;
+  }
+  
+  /* Inputs y botones */
+  input, button {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+  }
+  
+  button {
+    background-color: #3498db;
+    color: white;
+    cursor: pointer;
+  }
+  
+  /* Canvas ocupa toda la ventana */
+  canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    border: 2px solid #fff;
+    box-sizing: border-box;
+    z-index: 1;
+  
+  }
+  
+  
+  
