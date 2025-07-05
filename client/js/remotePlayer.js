@@ -6,6 +6,8 @@ export class RemotePlayer {
     this.targetY = y;
     this.prevX = x;
     this.prevY = y;
+    this.radius = 30; // mismo radio que el jugador local
+
 
     this.facing = facing;
     this.kills = kills;
@@ -77,7 +79,7 @@ export class RemotePlayer {
     ctx.fillStyle = "white";
     ctx.font = "11px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(this.name, 0, +this.frameHeight / 2 + 44);
+    ctx.fillText(this.name, 0, +this.frameHeight / 2 + 52);
     ctx.restore();
 
     // 🔫 Dibujar el arma con el ángulo recibido
@@ -93,6 +95,23 @@ export class RemotePlayer {
     ctx.moveTo(originX - camera.x, originY - camera.y);
     ctx.lineTo(gunX - camera.x, gunY - camera.y);
     ctx.stroke();
+
+    // --- Barra de vida pequeña debajo del sprite ---
+    const barWidth = 40;
+    const barHeight = 5;
+    const lifeRatio = Math.max(0, Math.min(this.life, 100)) / 100;
+
+    const barX = this.x - barWidth / 2;
+    const barY = this.y + this.frameHeight / 2 + 36;
+
+    // Fondo gris
+    ctx.fillStyle = "#333";
+    ctx.fillRect(barX - camera.x, barY - camera.y, barWidth, barHeight);
+
+    // Vida (verde, amarillo, rojo)
+    ctx.fillStyle = lifeRatio > 0.5 ? "#0f0" : lifeRatio > 0.2 ? "#ff0" : "#f00";
+    ctx.fillRect(barX - camera.x, barY - camera.y, barWidth * lifeRatio, barHeight);
+
   }
 
 }

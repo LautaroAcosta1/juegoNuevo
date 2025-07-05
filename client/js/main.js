@@ -182,7 +182,7 @@ function updateBullets() {
     // Colisión con jugador (usando colisión rectángulo)
     if (b.owner !== player && circleRectCollision(b, player.getCollisionBox())) {
       bullets.splice(i, 1);
-      player.life--;
+      player.life = Math.max(0, player.life - 10);
       console.log("¡Una vida menos!");
 
       if (player.life <= 0) {
@@ -240,13 +240,38 @@ function gameLoop(time = 0) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (player) {
+    // 🧠 1. Mover jugador
     player.update(deltaTime, keys);
+
+    // 🧱 2. Limitar movimiento dentro del mundo
     player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
     player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
+
+    // 🔁 3. Colisión con otros jugadores
+    for (const id in otherPlayers) {
+      const other = otherPlayers[id];
+      const dx = player.x - other.x;
+      const dy = player.y - other.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = player.radius + other.radius;
+
+      if (dist < minDist && dist !== 0) {
+        const overlap = minDist - dist;
+        const pushX = (dx / dist) * overlap;
+        const pushY = (dy / dist) * overlap;
+
+        player.x += pushX * 0.5; // suaviza el empuje
+        player.y += pushY * 0.5;
+      }
+    }
+
+    // 🎨 4. Dibujar jugador local
     player.draw(ctx, camera, mouseX + camera.x, mouseY + camera.y, images.player);
 
+    // 🎯 5. Calcular ángulo de disparo
     const angleGun = Math.atan2((camera.y + mouseY) - player.y, (camera.x + mouseX) - player.x);
 
+    // 📤 6. Enviar datos al servidor
     socket.emit("playerMove", {
       id: socket.id,
       x: player.x,
@@ -255,18 +280,18 @@ function gameLoop(time = 0) {
       kills: player.kills,
       life: player.life,
       name: player.name,
-      aimAngle: angleGun // 👈 Ángulo de apuntado
+      aimAngle: angleGun
     });
 
+    // 👥 7. Dibujar otros jugadores
     for (const id in otherPlayers) {
       const p = otherPlayers[id];
       p.update(deltaTime);
-      p.draw(ctx, camera, images.player); // 👈 Aquí se dibujará también su arma con su ángulo
+      p.draw(ctx, camera, images.player);
     }
 
-
-    // Arma (sólo si el jugador está listo y la imagen cargó)
-    const angle = Math.atan2((camera.y + mouseY) - player.y, (camera.x + mouseX) - player.x);
+    // 🔫 8. Dibujar arma local
+    const angle = angleGun;
     const gunLength = 50;
     const originX = player.x;
     const originY = player.y + 45;
@@ -276,15 +301,33 @@ function gameLoop(time = 0) {
     player.gunTipX = gunX;
     player.gunTipY = gunY;
 
-
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(originX - camera.x, originY - camera.y);
     ctx.lineTo(gunX - camera.x, gunY - camera.y);
     ctx.stroke();
+
+    // ❤️ 9. Barra de vida del jugador local
+    const barWidth = 200;
+    const barHeight = 20;
+    const x = 20;
+    const y = canvas.height - barHeight - 20;
+    const lifePercentage = Math.max(0, Math.min(player.life, 100)) / 100;
+
+    ctx.fillStyle = "#555";
+    ctx.fillRect(x, y, barWidth, barHeight);
+
+    ctx.fillStyle = lifePercentage > 0.5 ? "#0f0" : lifePercentage > 0.2 ? "#ff0" : "#f00";
+    ctx.fillRect(x, y, barWidth * lifePercentage, barHeight);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "16px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`Vida: ${player.life}`, x + 8, y + 15);
   }
 
+  // 🧟‍♂️ Enemigos (por ahora siguen hasta que los saques)
   updateEnemies();
   for (const enemy of enemies) enemy.draw(ctx, camera);
 
@@ -294,5 +337,6 @@ function gameLoop(time = 0) {
   updateRanking();
   requestAnimationFrame(gameLoop);
 }
+
 
 

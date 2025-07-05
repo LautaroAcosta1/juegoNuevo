@@ -4,8 +4,8 @@ export class Player {
     this.color = color;
     this.x = x;
     this.y = y;
-    this.radius = 20;
-    this.life = 5;
+    this.radius = 30;
+    this.life = 100;
     this.kills = 0;
     this.xVel = 0;
 
@@ -108,7 +108,7 @@ export class Player {
     // dibujar el nombre
     ctx.save();
     ctx.translate(screenX, screenY);
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "yellow";
     ctx.font = "11px Arial";
     ctx.textAlign = "center";
     ctx.fillText(this.name, 0, +this.frameHeight / 2 + 44);
