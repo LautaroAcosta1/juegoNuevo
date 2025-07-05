@@ -38,6 +38,7 @@ io.on("connection", (socket) => {
     facing: 1,
     kills: 0,
     life: 5,
+    aimAngle: 0,
   };
 
   socket.on("playerMove", (data) => {
@@ -47,9 +48,11 @@ io.on("connection", (socket) => {
       players[socket.id].facing = data.facing;
       players[socket.id].kills = data.kills;
       players[socket.id].life = data.life;
+      players[socket.id].name = data.name;
+      players[socket.id].aimAngle = data.aimAngle;
 
       // Enviar a todos los demás el estado actualizado
-      socket.broadcast.emit("updatePlayers", players);
+      io.emit("updatePlayers", players);
     }
   });
 

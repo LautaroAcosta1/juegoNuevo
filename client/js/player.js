@@ -105,6 +105,15 @@ export class Player {
 
     ctx.restore();
 
+    // dibujar el nombre
+    ctx.save();
+    ctx.translate(screenX, screenY);
+    ctx.fillStyle = "white";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(this.name, 0, +this.frameHeight / 2 + 44);
+    ctx.restore();
+
     // debug para dibujar el rectángulo de colisión en rojo (debug)
     //const collision = this.getCollisionBox();
     //ctx.save();

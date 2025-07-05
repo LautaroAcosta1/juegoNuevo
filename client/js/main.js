@@ -22,7 +22,9 @@ socket.on("updatePlayers", (playersData) => {
           playersData[id].y,
           playersData[id].facing,
           playersData[id].kills,
-          playersData[id].life
+          playersData[id].life,
+          playersData[id].name,
+          playersData[id].aimAngle || 0 // 👈 Añadir este valor aquí
         );
       } else {
         const p = otherPlayers[id];
@@ -31,10 +33,13 @@ socket.on("updatePlayers", (playersData) => {
         p.facing = playersData[id].facing;
         p.kills = playersData[id].kills;
         p.life = playersData[id].life;
+        p.aimAngle = playersData[id].aimAngle || 0;
+        p.name = playersData[id].name;
       }
     }
   }
 });
+
 
 
 
@@ -240,6 +245,8 @@ function gameLoop(time = 0) {
     player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
     player.draw(ctx, camera, mouseX + camera.x, mouseY + camera.y, images.player);
 
+    const angleGun = Math.atan2((camera.y + mouseY) - player.y, (camera.x + mouseX) - player.x);
+
     socket.emit("playerMove", {
       id: socket.id,
       x: player.x,
@@ -247,20 +254,15 @@ function gameLoop(time = 0) {
       facing: player.facing,
       kills: player.kills,
       life: player.life,
+      name: player.name,
+      aimAngle: angleGun // 👈 Ángulo de apuntado
     });
 
-for (const id in otherPlayers) {
-  const p = otherPlayers[id];
-  p.update(deltaTime);
-  p.draw(ctx, camera, images.player);
-}
-
-
-
-
-
-
-
+    for (const id in otherPlayers) {
+      const p = otherPlayers[id];
+      p.update(deltaTime);
+      p.draw(ctx, camera, images.player); // 👈 Aquí se dibujará también su arma con su ángulo
+    }
 
 
     // Arma (sólo si el jugador está listo y la imagen cargó)

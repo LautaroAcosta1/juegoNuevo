@@ -1,5 +1,5 @@
 export class RemotePlayer {
-  constructor(x, y, facing = 1, kills = 0, life = 5) {
+  constructor(x, y, facing = 1, kills = 0, life = 5, name, aimAngle = 0) {
     this.x = x;
     this.y = y;
     this.targetX = x;
@@ -10,6 +10,8 @@ export class RemotePlayer {
     this.facing = facing;
     this.kills = kills;
     this.life = life;
+    this.name = name;
+    this.aimAngle = aimAngle;
 
     this.frameWidth = 64;
     this.frameHeight = 64;
@@ -29,20 +31,11 @@ export class RemotePlayer {
     this.x += dx * lerpFactor;
     this.y += dy * lerpFactor;
 
-    // Verificar si está moviéndose
-    const moving = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
-    this.isMoving = moving;
+    this.isMoving = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
 
-    // Elegir animación
-    if (this.isMoving) {
-      this.startFrame = 2;
-      this.endFrame = 5; // Run
-    } else {
-      this.startFrame = 0;
-      this.endFrame = 1; // Idle
-    }
+    this.startFrame = this.isMoving ? 2 : 0;
+    this.endFrame = this.isMoving ? 5 : 1;
 
-    // Avance de frames
     this.frameTimer += deltaTime;
     if (this.frameTimer > this.frameInterval) {
       this.frameIndex++;
@@ -60,15 +53,14 @@ export class RemotePlayer {
     ctx.save();
     ctx.translate(screenX, screenY);
 
-    // Flip si está mirando a la derecha
     if (this.facing === 1) {
       ctx.scale(-1, 1);
     }
 
     const scale = 2;
     ctx.scale(scale, scale);
-
     ctx.imageSmoothingEnabled = false;
+
     ctx.drawImage(
       sprite,
       this.frameIndex * this.frameWidth, 0,
@@ -78,5 +70,29 @@ export class RemotePlayer {
     );
 
     ctx.restore();
+
+    // dibujar el nombre
+    ctx.save();
+    ctx.translate(screenX, screenY);
+    ctx.fillStyle = "white";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(this.name, 0, +this.frameHeight / 2 + 44);
+    ctx.restore();
+
+    // 🔫 Dibujar el arma con el ángulo recibido
+    const gunLength = 50;
+    const originX = this.x;
+    const originY = this.y + 45;
+    const gunX = originX + Math.cos(this.aimAngle) * gunLength;
+    const gunY = originY + Math.sin(this.aimAngle) * gunLength;
+
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(originX - camera.x, originY - camera.y);
+    ctx.lineTo(gunX - camera.x, gunY - camera.y);
+    ctx.stroke();
   }
+
 }
