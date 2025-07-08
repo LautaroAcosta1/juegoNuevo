@@ -37,8 +37,9 @@ io.on("connection", (socket) => {
     y: 0,
     facing: 1,
     kills: 0,
-    life: 5,
+    life: 100,
     aimAngle: 0,
+    name: "jugador"
   };
 
   socket.on("playerMove", (data) => {
@@ -55,6 +56,53 @@ io.on("connection", (socket) => {
       io.emit("updatePlayers", players);
     }
   });
+
+  socket.on("shootBullet", (bulletData) => {
+    // reenviamos la bala a todos MENOS al que disparó
+    socket.broadcast.emit("remoteBullet", bulletData);
+  });
+
+socket.on("playerHit", ({ targetId, damage }) => {
+  const target = players[targetId];
+  const attacker = players[socket.id];
+
+  if (!attacker || !target) {
+    console.log("❌ Atacante o víctima no encontrados");
+    return;
+  }
+
+  // Validar daño
+  const validDamage = typeof damage === "number" && damage > 0 && damage <= 50 ? damage : 5;
+
+  console.log(`💥 ${attacker.name} golpeó a ${target.name}. Daño: ${validDamage}`);
+
+  target.life -= validDamage;
+
+  if (target.life <= 0) {
+    console.log(`☠️ ${attacker.name} eliminó a ${target.name}`);
+    attacker.kills++;
+    delete players[targetId];
+
+    // Informar a todos que el jugador fue eliminado
+    io.emit("playerKilled", {
+      killerId: socket.id,
+      killedId: targetId
+    });
+  }
+
+  io.emit("updatePlayers", players);
+});
+
+
+
+
+
+
+
+
+
+
+
 
   socket.on("disconnect", () => {
     console.log("Jugador desconectado:", socket.id);

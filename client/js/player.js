@@ -4,7 +4,7 @@ export class Player {
     this.color = color;
     this.x = x;
     this.y = y;
-    this.radius = 30;
+    this.radius = 20;
     this.life = 100;
     this.kills = 0;
     this.xVel = 0;
@@ -70,10 +70,10 @@ export class Player {
 
   getCollisionBox() {
     return {
-      x: this.x - 32,   // Centrado horizontalmente (64 / 2)
-      y: this.y + 10,   // Bajamos el rectángulo (ajustalo según el cuerpo)
-      width: 64,
-      height: 58,        // Alto que cubre el torso/piernas
+      x: this.x - 21,   // Centrado horizontalmente (64 / 2)
+      y: this.y + 14,   // Bajamos el rectángulo (ajustalo según el cuerpo)
+      width: 42,
+      height: 46,        // Alto que cubre el torso/piernas
     };
   }
 

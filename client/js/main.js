@@ -36,21 +36,28 @@ socket.on("updatePlayers", (playersData) => {
         p.aimAngle = playersData[id].aimAngle || 0;
         p.name = playersData[id].name;
       }
-    }
+    } 
   }
 });
 
+socket.on("remoteBullet", (bulletData) => {
+  // Crear una bala como si fuera local, pero con un dummy owner
+  const dummyOwner = otherPlayers[bulletData.ownerId];
+  if (!dummyOwner) return; // Asegurar que el jugador exista
 
-
-
+  bullets.push(new Bullet(
+    bulletData.x,
+    bulletData.y,
+    bulletData.angle,
+    bulletData.speed,
+    bulletData.damage,
+    dummyOwner
+  ));
+});
 
 socket.on("playerDisconnected", (id) => {
   delete otherPlayers[id];
 });
-
-
-
-
 
 const startBtn = document.getElementById("startBtn");
 const menu = document.getElementById("menu");
@@ -99,7 +106,6 @@ async function init() {
     return;
   }
 
-  // 🎮 Todo sigue igual desde acá
   player = new Player(name, color, world.width / 2, world.height / 2);
 
   canvas.width = window.innerWidth;
@@ -118,11 +124,9 @@ async function init() {
 
   menu.style.display = "none";
   canvas.style.display = "block";
-  document.getElementById("ranking").style.display = "block";
 
   requestAnimationFrame(gameLoop);
 }
-
 
 window.addEventListener('resize', () => {
   resizeCanvas();
@@ -154,20 +158,45 @@ canvas.addEventListener("mousedown", () => {
   const worldMouseX = camera.x + mouseX;
   const worldMouseY = camera.y + mouseY;
   const angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
-  bullets.push(new Bullet(player.gunTipX, player.gunTipY, angle, 6, 5, player));
+
+  const bullet = new Bullet(player.gunTipX, player.gunTipY, angle, 6, 5, player);
+  bullets.push(bullet);
+
+  // 🔧 Definimos bulletData para enviar por socket
+  const bulletData = {
+    x: bullet.x,
+    y: bullet.y,
+    angle: bullet.angle,
+    speed: bullet.speed,
+    damage: bullet.damage,
+    ownerId: socket.id
+  };
+
+  socket.emit("shootBullet", bulletData);
 });
 
+/*
 function updateEnemies() {
   for (const enemy of enemies) {
     enemy.moveToward(player);
     enemy.updateCooldown();
     if (enemy.canShoot()) {
       const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
-      bullets.push(new Bullet(enemy.x, enemy.y, angle, 5, 5, enemy));
+      const bulletData = {
+        x: player.gunTipX,
+        y: player.gunTipY,
+        angle: angle,
+        speed: 6,
+        damage: 5,
+        ownerId: socket.id
+      };
+      bullets.push(new Bullet(bulletData.x, bulletData.y, bulletData.angle, bulletData.speed, bulletData.damage, player));
+
       enemy.resetShootCooldown();
     }
   }
 }
+*/
 
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -179,12 +208,10 @@ function updateBullets() {
       continue;
     }
 
-    // Colisión con jugador (usando colisión rectángulo)
+    // ✅ Colisión contra el jugador local (daño recibido)
     if (b.owner !== player && circleRectCollision(b, player.getCollisionBox())) {
       bullets.splice(i, 1);
-      player.life = Math.max(0, player.life - 10);
-      console.log("¡Una vida menos!");
-
+      player.life--;
       if (player.life <= 0) {
         alert("¡Perdiste!");
         window.location.reload();
@@ -192,35 +219,34 @@ function updateBullets() {
       continue;
     }
 
-    // Colisión con enemigos (mantiene la colisión circular)
-    for (let j = enemies.length - 1; j >= 0; j--) {
-      const e = enemies[j];
-      if (e === b.owner) continue;
-      if (checkCollision(b, e)) {
-        bullets.splice(i, 1);
-        e.life--;
-        if (e.life <= 0) {
-          b.owner.kills++;
-          enemies.splice(j, 1);
-        }
+    // ✅ Colisión contra jugadores remotos (daño causado)
+    for (const id in otherPlayers) {
+      const remote = otherPlayers[id];
+      if (b.owner === player && circleRectCollision(b, remote.getCollisionBox())) {
+        bullets.splice(i, 1); // Quitar bala localmente
+
+        // Avisar al servidor que se dañó al jugador remoto
+        socket.emit("playerHit", {
+          targetId: id,
+          damage: b.damage
+        });
+
+        break; // Salir del bucle, ya golpeó a un jugador
+      }
+    }
+
+    // 👁️ Colisión entre jugadores remotos (solo visual, sin daño)
+    for (const id in otherPlayers) {
+      const remote = otherPlayers[id];
+
+      if (b.owner && b.owner !== player && b.owner !== remote && circleRectCollision(b, remote.getCollisionBox())) {
+        bullets.splice(i, 1); // Eliminar la bala localmente para no verla atravesar
         break;
       }
     }
   }
 }
 
-
-function updateRanking() {
-  const list = document.getElementById("rankingList");
-  list.innerHTML = "";
-  const all = [player, ...enemies];
-  all.sort((a, b) => b.kills - a.kills);
-  for (const p of all) {
-    const li = document.createElement("li");
-    li.textContent = `${p.name} - Kills: ${p.kills}`;
-    list.appendChild(li);
-  }
-}
 
 function updateCamera() {
   if (!player) return; // <-- evita el error si player no está aún
@@ -267,6 +293,21 @@ function gameLoop(time = 0) {
 
     // 🎨 4. Dibujar jugador local
     player.draw(ctx, camera, mouseX + camera.x, mouseY + camera.y, images.player);
+
+    /*
+    // Ahora dibujamos el rectángulo de colisión para visualizarlo
+    const colBox = player.getCollisionBox();
+    ctx.save();
+    ctx.strokeStyle = "blue";  // Color del rectángulo para que sea visible
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+      colBox.x - camera.x,
+      colBox.y - camera.y,
+      colBox.width,
+      colBox.height
+    );
+    ctx.restore();
+    */
 
     // 🎯 5. Calcular ángulo de disparo
     const angleGun = Math.atan2((camera.y + mouseY) - player.y, (camera.x + mouseX) - player.x);
@@ -328,13 +369,15 @@ function gameLoop(time = 0) {
   }
 
   // 🧟‍♂️ Enemigos (por ahora siguen hasta que los saques)
-  updateEnemies();
+  
+  //updateEnemies();
+
+
   for (const enemy of enemies) enemy.draw(ctx, camera);
 
   updateBullets();
   for (const bullet of bullets) bullet.draw(ctx, camera);
 
-  updateRanking();
   requestAnimationFrame(gameLoop);
 }
 

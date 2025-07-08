@@ -1,12 +1,12 @@
 export class RemotePlayer {
-  constructor(x, y, facing = 1, kills = 0, life = 5, name, aimAngle = 0) {
+  constructor(x, y, facing = 1, kills = 0, life = 100, name, aimAngle = 0) {
     this.x = x;
     this.y = y;
     this.targetX = x;
     this.targetY = y;
     this.prevX = x;
     this.prevY = y;
-    this.radius = 30; // mismo radio que el jugador local
+    this.radius = 20; // mismo radio que el jugador local
 
 
     this.facing = facing;
@@ -24,6 +24,17 @@ export class RemotePlayer {
     this.endFrame = 1;
     this.isMoving = false;
   }
+
+  getCollisionBox() {
+    return {
+      x: this.x - this.frameWidth / 2 + 10,
+      y: this.y - this.frameHeight / 2 + 49,
+      width: this.frameWidth - 21,
+      height: this.frameHeight - 21
+    };
+  }
+
+
 
   update(deltaTime) {
     const lerpFactor = 0.1;
@@ -111,6 +122,17 @@ export class RemotePlayer {
     // Vida (verde, amarillo, rojo)
     ctx.fillStyle = lifeRatio > 0.5 ? "#0f0" : lifeRatio > 0.2 ? "#ff0" : "#f00";
     ctx.fillRect(barX - camera.x, barY - camera.y, barWidth * lifeRatio, barHeight);
+
+
+
+
+    /*
+    // prueba colision
+    const box = this.getCollisionBox();
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(box.x - camera.x, box.y - camera.y, box.width, box.height);
+    */
 
   }
 
