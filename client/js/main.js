@@ -223,7 +223,7 @@ function updateBullets() {
     for (const id in otherPlayers) {
       const remote = otherPlayers[id];
       if (b.owner === player && circleRectCollision(b, remote.getCollisionBox())) {
-        bullets.splice(i, 1); // Quitar bala localmente
+        bullets.splice(i, 1); // Quitar bala solo localmente
 
         // Avisar al servidor que se dañó al jugador remoto
         socket.emit("playerHit", {
@@ -234,19 +234,8 @@ function updateBullets() {
         break; // Salir del bucle, ya golpeó a un jugador
       }
     }
-
-    // 👁️ Colisión entre jugadores remotos (solo visual, sin daño)
-    for (const id in otherPlayers) {
-      const remote = otherPlayers[id];
-
-      if (b.owner && b.owner !== player && b.owner !== remote && circleRectCollision(b, remote.getCollisionBox())) {
-        bullets.splice(i, 1); // Eliminar la bala localmente para no verla atravesar
-        break;
-      }
-    }
   }
 }
-
 
 function updateCamera() {
   if (!player) return; // <-- evita el error si player no está aún
