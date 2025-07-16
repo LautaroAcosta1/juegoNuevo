@@ -2,12 +2,27 @@
 import { Player } from './player.js';
 import { Bullet } from './bullet.js';
 import { RemotePlayer } from './remotePlayer.js';
+import { BloodParticle } from './bloodParticle.js';
 import { checkCollision, circleRectCollision } from './utils.js';
 
 const socket = io("http://localhost:3000");  // Cambia la URL si usás otro host o puerto
 
 socket.on("connect", () => {
   console.log("Conectado con id:", socket.id);
+});
+
+socket.on("playerHitVisual", ({ targetId }) => {
+  const target = otherPlayers[targetId];
+  if (!target) return;
+
+  // Partículas centradas en el jugador remoto
+  for (let j = 0; j < 10; j++) {
+    const angle = Math.random() * 2 * Math.PI;
+    const speed = Math.random() * 50 + 50;
+    const lifetime = Math.random() * 0.5 + 0.2;
+    bloodParticles.push(new BloodParticle(target.x, target.y + 40, angle, speed, lifetime));
+    // Sumale 20 px para que salga un poco más abajo del centro, igual que en el jugador local
+  }
 });
 
 let topRanking = [];
@@ -241,8 +256,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "3") player.activeWeapon = "sniper";
 });
 
-
-
+let bloodParticles = [];
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
@@ -258,6 +272,17 @@ function updateBullets() {
       bullets.splice(i, 1);
       if (player.life <= 0) continue;
       player.life -= b.damage;
+    
+      const particleOriginX = player.x;
+      const particleOriginY = player.y + 40; // 20 píxeles más abajo, ajustalo a tu gusto
+
+      for (let j = 0; j < 10; j++) {
+        const angle = Math.random() * 2 * Math.PI;
+        const speed = Math.random() * 50 + 50;
+        const lifetime = Math.random() * 0.5 + 0.2;
+        bloodParticles.push(new BloodParticle(particleOriginX, particleOriginY, angle, speed, lifetime));
+      }
+
       if (player.life <= 0) {
         socket.emit("playerLeft"); // 🧠 Avisar al servidor que se fue
         alert("¡Perdiste!");
@@ -483,7 +508,21 @@ function gameLoop(time = 0) {
   }
 
   updateBullets();
+
   for (const bullet of bullets) bullet.draw(ctx, camera);
+
+  // 🩸 Actualizar partículas de sangre
+  for (let i = bloodParticles.length - 1; i >= 0; i--) {
+    bloodParticles[i].update(deltaTime / 1000); // convertir ms a segundos
+    if (bloodParticles[i].isDead()) {
+      bloodParticles.splice(i, 1);
+    }
+  }
+
+  // 🩸 Dibujar partículas de sangre
+  for (const p of bloodParticles) {
+    p.draw(ctx, camera);
+  }
 
   requestAnimationFrame(gameLoop);
 }

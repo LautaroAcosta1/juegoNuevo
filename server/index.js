@@ -104,12 +104,14 @@ io.on("connection", (socket) => {
 
     target.life -= damage;
 
+    io.emit("playerHitVisual", { targetId });
+
     if (target.life <= 0) {
       console.log(`☠️ ${attacker.name} mató a ${target.name}`);
       attacker.kills++;
       delete players[targetId];
     }
-
+    
     io.emit("updatePlayers", players);
     io.emit("updateRanking", getTopPlayers());
   });
