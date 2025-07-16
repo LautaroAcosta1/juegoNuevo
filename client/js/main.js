@@ -24,14 +24,17 @@ socket.on("updateRanking", (rankingData) => {
 
 function renderRanking(ranking) {
   const list = document.getElementById("rankingList");
+  if (!list) return;
+
   list.innerHTML = "";
-  
+
   ranking.forEach((p, i) => {
     const item = document.createElement("li");
     item.textContent = `${i + 1}. ${p.name} - ${p.kills} kills`;
     list.appendChild(item);
   });
 }
+
 
 const otherPlayers = {};
 
@@ -92,7 +95,6 @@ socket.on("updatePlayers", (playersData) => {
   }
 });
 
-
 socket.on("remoteBullet", (bulletData) => {
   const dummyOwner = otherPlayers[bulletData.ownerId];
   if (!dummyOwner) return;
@@ -107,7 +109,6 @@ socket.on("remoteBullet", (bulletData) => {
     bulletData.damage
   ));
 });
-
 
 socket.on("playerDisconnected", (id) => {
   delete otherPlayers[id];
@@ -166,7 +167,6 @@ async function init() {
     name: name,
   });
 
-
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   camera.width = canvas.width;
@@ -207,6 +207,14 @@ images.player.onload = () => {
 document.addEventListener("keydown", (e) => keys[e.key] = true);
 document.addEventListener("keyup", (e) => keys[e.key] = false);
 
+let showRanking = false;
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "r" || e.key === "R") {
+    showRanking = !showRanking; // Alterna visibilidad
+  }
+});
+
 canvas.addEventListener("mousemove", (e) => {
   const rect = canvas.getBoundingClientRect();
   mouseX = e.clientX - rect.left;
@@ -233,30 +241,6 @@ canvas.addEventListener("mousedown", () => {
 
   socket.emit("shootBullet", bulletData);
 });
-
-
-/*
-function updateEnemies() {
-  for (const enemy of enemies) {
-    enemy.moveToward(player);
-    enemy.updateCooldown();
-    if (enemy.canShoot()) {
-      const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
-      const bulletData = {
-        x: player.gunTipX,
-        y: player.gunTipY,
-        angle: angle,
-        speed: 6,
-        damage: 5,
-        ownerId: socket.id
-      };
-      bullets.push(new Bullet(bulletData.x, bulletData.y, bulletData.angle, bulletData.speed, bulletData.damage, player));
-
-      enemy.resetShootCooldown();
-    }
-  }
-}
-*/
 
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -306,7 +290,6 @@ function updateBullets() {
   }
 }
 
-
 function updateCamera() {
   if (!player) return; // <-- evita el error si player no está aún
 
@@ -317,6 +300,7 @@ function updateCamera() {
 }
 
 let lastTime = 0;
+let rankingAlpha = 0;
 function gameLoop(time = 0) {
   const deltaTime = time - lastTime;
   lastTime = time;
@@ -426,30 +410,60 @@ function gameLoop(time = 0) {
     ctx.fillText(`Vida: ${player.life}`, x + 8, y + 15);
   }
 
-  // 🏆 Mostrar ranking global
-  const rankX = canvas.width - 220;
-  const rankY = 20;
 
-  ctx.fillStyle = "#000";
-  ctx.fillRect(rankX - 10, rankY - 10, 200, 240);
+  if (showRanking && rankingAlpha < 1) {
+  rankingAlpha += 0.02;
+} else if (!showRanking && rankingAlpha > 0) {
+  rankingAlpha -= 0.02;
+}
 
-  ctx.fillStyle = "#fff";
-  ctx.font = "18px Arial";
-  ctx.fillText("🏆 Ranking", rankX, rankY);
+if (rankingAlpha > 0) {
+  ctx.save();
+  ctx.globalAlpha = rankingAlpha;
 
-  ctx.font = "16px Arial";
-  topRanking.forEach((player, i) => {
-    const text = `${i + 1}. ${player.name} - ${player.kills} kills`;
-    ctx.fillText(text, rankX, rankY + 30 + i * 20);
-  });
+  if (showRanking) {
+    // 🏆 Mostrar ranking global mejorado (sin título)
+    const rankX = canvas.width - 240;
+    const rankY = 20;
+    const boxWidth = 220;
+    const boxHeight = 270;
+    const padding = 10;
 
+    // Fondo con opacidad
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+    ctx.fillRect(rankX, rankY, boxWidth, boxHeight);
 
-  // 🧟‍♂️ Enemigos (por ahora siguen hasta que los saques)
-  
-  //updateEnemies();
+    // Encabezados
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("Jugador", rankX + padding, rankY + 25);
+    ctx.textAlign = "right";
+    ctx.fillText("Kills", rankX + boxWidth - padding, rankY + 25);
 
+    // Jugadores
+    ctx.font = "12px Arial";
+    topRanking.forEach((player, i) => {
+      let color = "#e3e3e3ff";
+      if (i === 0) color = "#FFD700"; // Oro
+      else if (i === 1) color = "#ffffffa6"; // Plata
+      else if (i === 2) color = "#cd8032fd"; // Bronce
 
-  for (const enemy of enemies) enemy.draw(ctx, camera);
+      const y = rankY + 45 + i * 20;
+
+      // Posición y nombre
+      ctx.fillStyle = color;
+      ctx.textAlign = "left";
+      ctx.fillText(`${i + 1}. ${player.name}`, rankX + padding, y);
+
+      // Kills
+      ctx.textAlign = "right";
+      ctx.fillText(`${player.kills}`, rankX + boxWidth - padding, y);
+    });
+  }
+
+  ctx.restore();
+}
 
   updateBullets();
   for (const bullet of bullets) bullet.draw(ctx, camera);
