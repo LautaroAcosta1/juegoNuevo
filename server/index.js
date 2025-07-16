@@ -48,7 +48,6 @@ io.on("connection", (socket) => {
       players[socket.id].y = data.y;
       players[socket.id].facing = data.facing;
       players[socket.id].kills = data.kills;
-      players[socket.id].life = data.life;
       players[socket.id].name = data.name;
       players[socket.id].aimAngle = data.aimAngle;
 
@@ -61,6 +60,28 @@ io.on("connection", (socket) => {
     // reenviamos la bala a todos MENOS al que disparó
     socket.broadcast.emit("remoteBullet", bulletData);
   });
+
+  socket.on("playerHit", ({ targetId, damage }) => {
+    const target = players[targetId];
+    const attacker = players[socket.id];
+
+    if (target && attacker) {
+      console.log(`💥 ${attacker.name} dañó a ${target.name}. Vida antes: ${target.life}`);
+
+      target.life -= damage;  // ✅ asegurate que sea 'damage' y no '1' o '--'
+
+      console.log(`❤️ Vida restante de ${target.name}: ${target.life}`);
+
+      if (target.life <= 0) {
+        console.log(`☠️ ${attacker.name} mató a ${target.name}`);
+        attacker.kills++;
+        delete players[targetId];
+      }
+
+      io.emit("updatePlayers", players);
+    }
+  });
+
 
   socket.on("disconnect", () => {
     console.log("Jugador desconectado:", socket.id);
