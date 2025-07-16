@@ -1,6 +1,5 @@
 // main.js
 import { Player } from './player.js';
-import { Enemy } from './enemy.js';
 import { Bullet } from './bullet.js';
 import { RemotePlayer } from './remotePlayer.js';
 import { checkCollision, circleRectCollision } from './utils.js';
@@ -34,7 +33,6 @@ function renderRanking(ranking) {
     list.appendChild(item);
   });
 }
-
 
 const otherPlayers = {};
 
@@ -120,7 +118,6 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 let player;
-let enemies = [];
 let bullets = [];
 let keys = {};
 let mouseX = 0;
@@ -172,14 +169,7 @@ async function init() {
   camera.width = canvas.width;
   camera.height = canvas.height;
 
-  enemies = [];
   bullets = [];
-
-  for (let i = 0; i < 5; i++) {
-    const x = Math.random() * world.width;
-    const y = Math.random() * world.height;
-    enemies.push(new Enemy(x, y));
-  }
 
   menu.style.display = "none";
   canvas.style.display = "block";
@@ -222,25 +212,36 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("mousedown", () => {
+  if (!player.canShoot()) return;
+
   const worldMouseX = camera.x + mouseX;
   const worldMouseY = camera.y + mouseY;
   const angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-  const bullet = new Bullet(player.gunTipX, player.gunTipY, angle, 6, 5, player, 10);
-  bullets.push(bullet);
+  const newBullets = player.shoot(angle);
+  bullets.push(...newBullets);
 
-  const bulletData = {
-    x: bullet.x,
-    y: bullet.y,
-    angle: bullet.angle,
-    speed: bullet.speed,
-    radius: bullet.radius,
-    damage: bullet.damage,
-    ownerId: socket.id
-  };
-
-  socket.emit("shootBullet", bulletData);
+  for (const bullet of newBullets) {
+    const bulletData = {
+      x: bullet.x,
+      y: bullet.y,
+      angle: bullet.angle,
+      speed: bullet.speed,
+      radius: bullet.radius,
+      damage: bullet.damage,
+      ownerId: socket.id
+    };
+    socket.emit("shootBullet", bulletData);
+  }
 });
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "1") player.activeWeapon = "pistol";
+  if (e.key === "2") player.activeWeapon = "shotgun";
+  if (e.key === "3") player.activeWeapon = "sniper";
+});
+
+
 
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -391,6 +392,21 @@ function gameLoop(time = 0) {
     ctx.lineTo(gunX - camera.x, gunY - camera.y);
     ctx.stroke();
 
+    // 🔫 Mostrar arma equipada
+    if (player) {
+      const weapon = player.getCurrentWeapon();
+      const x = 20;
+      const y = 20;
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      ctx.fillRect(x - 10, y - 10, 200, 50);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px Arial";
+      ctx.fillText(`Arma: ${weapon.name}`, x, y + 5);
+      ctx.fillText(`Daño: ${weapon.damage}`, x, y + 25);
+    }
+
     // ❤️ 9. Barra de vida del jugador local
     const barWidth = 200;
     const barHeight = 20;
@@ -412,58 +428,58 @@ function gameLoop(time = 0) {
 
 
   if (showRanking && rankingAlpha < 1) {
-  rankingAlpha += 0.02;
-} else if (!showRanking && rankingAlpha > 0) {
-  rankingAlpha -= 0.02;
-}
-
-if (rankingAlpha > 0) {
-  ctx.save();
-  ctx.globalAlpha = rankingAlpha;
-
-  if (showRanking) {
-    // 🏆 Mostrar ranking global mejorado (sin título)
-    const rankX = canvas.width - 240;
-    const rankY = 20;
-    const boxWidth = 220;
-    const boxHeight = 270;
-    const padding = 10;
-
-    // Fondo con opacidad
-    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-    ctx.fillRect(rankX, rankY, boxWidth, boxHeight);
-
-    // Encabezados
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px Arial";
-    ctx.textAlign = "left";
-    ctx.fillText("Jugador", rankX + padding, rankY + 25);
-    ctx.textAlign = "right";
-    ctx.fillText("Kills", rankX + boxWidth - padding, rankY + 25);
-
-    // Jugadores
-    ctx.font = "12px Arial";
-    topRanking.forEach((player, i) => {
-      let color = "#e3e3e3ff";
-      if (i === 0) color = "#FFD700"; // Oro
-      else if (i === 1) color = "#ffffffa6"; // Plata
-      else if (i === 2) color = "#cd8032fd"; // Bronce
-
-      const y = rankY + 45 + i * 20;
-
-      // Posición y nombre
-      ctx.fillStyle = color;
-      ctx.textAlign = "left";
-      ctx.fillText(`${i + 1}. ${player.name}`, rankX + padding, y);
-
-      // Kills
-      ctx.textAlign = "right";
-      ctx.fillText(`${player.kills}`, rankX + boxWidth - padding, y);
-    });
+    rankingAlpha += 0.02;
+  } else if (!showRanking && rankingAlpha > 0) {
+    rankingAlpha -= 0.02;
   }
 
-  ctx.restore();
-}
+  if (rankingAlpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = rankingAlpha;
+
+    if (showRanking) {
+      // 🏆 Mostrar ranking global mejorado
+      const rankX = canvas.width - 240;
+      const rankY = 20;
+      const boxWidth = 220;
+      const boxHeight = 270;
+      const padding = 10;
+
+      // Fondo con opacidad
+      ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+      ctx.fillRect(rankX, rankY, boxWidth, boxHeight);
+
+      // Encabezados
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("Jugador", rankX + padding, rankY + 25);
+      ctx.textAlign = "right";
+      ctx.fillText("Kills", rankX + boxWidth - padding, rankY + 25);
+
+      // Jugadores
+      ctx.font = "12px Arial";
+      topRanking.forEach((player, i) => {
+        let color = "#e3e3e3ff";
+        if (i === 0) color = "#FFD700"; // Oro
+        else if (i === 1) color = "#ffffffa6"; // Plata
+        else if (i === 2) color = "#cd8032fd"; // Bronce
+
+        const y = rankY + 45 + i * 20;
+
+        // Posición y nombre
+        ctx.fillStyle = color;
+        ctx.textAlign = "left";
+        ctx.fillText(`${i + 1}. ${player.name}`, rankX + padding, y);
+
+        // Kills
+        ctx.textAlign = "right";
+        ctx.fillText(`${player.kills}`, rankX + boxWidth - padding, y);
+      });
+    }
+
+    ctx.restore();
+  }
 
   updateBullets();
   for (const bullet of bullets) bullet.draw(ctx, camera);
