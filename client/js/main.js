@@ -11,6 +11,28 @@ socket.on("connect", () => {
   console.log("Conectado con id:", socket.id);
 });
 
+let topRanking = [];
+
+socket.on("updateRanking", (rankingData) => {
+  topRanking = rankingData;
+
+  // Eliminamos jugadores sin nombre válido o con nombre por defecto
+  const filteredRanking = rankingData.filter(p => p.name && p.name !== "jugador");
+
+  renderRanking(filteredRanking);
+});
+
+function renderRanking(ranking) {
+  const list = document.getElementById("rankingList");
+  list.innerHTML = "";
+  
+  ranking.forEach((p, i) => {
+    const item = document.createElement("li");
+    item.textContent = `${i + 1}. ${p.name} - ${p.kills} kills`;
+    list.appendChild(item);
+  });
+}
+
 const otherPlayers = {};
 
 socket.on("updatePlayers", (playersData) => {
@@ -36,6 +58,9 @@ socket.on("updatePlayers", (playersData) => {
   // ✅ Actualizamos o creamos jugadores remotos
   for (const id in playersData) {
     if (id !== socket.id) {
+
+      if (!playersData[id].name || playersData[id].name === "jugador") continue;
+
       if (!otherPlayers[id]) {
         otherPlayers[id] = new RemotePlayer(
           playersData[id].x,
@@ -136,6 +161,11 @@ async function init() {
   }
 
   player = new Player(name, color, world.width / 2, world.height / 2);
+
+  socket.emit("playerJoined", {
+    name: name,
+  });
+
 
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -243,6 +273,7 @@ function updateBullets() {
       bullets.splice(i, 1);
       player.life -= b.damage;
       if (player.life <= 0) {
+        socket.emit("playerLeft"); // 🧠 Avisar al servidor que se fue
         alert("¡Perdiste!");
         window.location.reload();
       }
@@ -394,6 +425,24 @@ function gameLoop(time = 0) {
     ctx.textAlign = "left";
     ctx.fillText(`Vida: ${player.life}`, x + 8, y + 15);
   }
+
+  // 🏆 Mostrar ranking global
+  const rankX = canvas.width - 220;
+  const rankY = 20;
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(rankX - 10, rankY - 10, 200, 240);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "18px Arial";
+  ctx.fillText("🏆 Ranking", rankX, rankY);
+
+  ctx.font = "16px Arial";
+  topRanking.forEach((player, i) => {
+    const text = `${i + 1}. ${player.name} - ${player.kills} kills`;
+    ctx.fillText(text, rankX, rankY + 30 + i * 20);
+  });
+
 
   // 🧟‍♂️ Enemigos (por ahora siguen hasta que los saques)
   

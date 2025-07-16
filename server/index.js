@@ -29,6 +29,23 @@ const PORT = process.env.PORT || 3000;
 const players = {};
 
 io.on("connection", (socket) => {
+
+  // funciones
+  function getTopPlayers() {
+    return Object.values(players)
+      .filter(p => p.name && p.name !== "jugador") // 👈 Filtra jugadores "fantasma"
+      .sort((a, b) => b.kills - a.kills)
+      .slice(0, 10);
+  }
+
+  function getSortedRanking(players) {
+    return Object.values(players)
+      .filter(p => p.name && p.name !== "jugador")
+      .map(p => ({ name: p.name, kills: p.kills }))
+      .sort((a, b) => b.kills - a.kills)
+      .slice(0, 10);
+  }
+
   console.log("Nuevo jugador conectado:", socket.id);
 
   players[socket.id] = {
@@ -41,6 +58,19 @@ io.on("connection", (socket) => {
     aimAngle: 0,
     name: "jugador"
   };
+
+  socket.on("playerJoined", ({ name, color }) => {
+    if (players[socket.id]) {
+      players[socket.id].name = name;
+      players[socket.id].color = color;
+
+      io.emit("updatePlayers", players);
+      io.emit("updateRanking", getTopPlayers());
+    }
+  });
+
+  // Enviar ranking actual al nuevo jugador
+  socket.emit("updateRanking", getTopPlayers());
 
   socket.on("playerMove", (data) => {
     if (players[socket.id]) {
@@ -79,18 +109,30 @@ io.on("connection", (socket) => {
       }
 
       io.emit("updatePlayers", players);
+      io.emit("updateRanking", getTopPlayers());
     }
   });
 
+  socket.on("playerLeft", () => {
+    console.log("Jugador salió manualmente:", socket.id);
+    delete players[socket.id];
+    socket.broadcast.emit("playerDisconnected", socket.id);
+    io.emit("updatePlayers", players);
+    io.emit("updateRanking", getTopPlayers());
+  });
 
   socket.on("disconnect", () => {
     console.log("Jugador desconectado:", socket.id);
     delete players[socket.id];
-    // Avisar a todos que este jugador se fue
+
+    // 🚨 Emití actualización del ranking
+    io.emit("updatePlayers", players);
+    io.emit("rankingUpdate", getSortedRanking(players));
+
+    // También avisá al resto que se desconectó
     socket.broadcast.emit("playerDisconnected", socket.id);
   });
 });
-
 
 httpServer.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
