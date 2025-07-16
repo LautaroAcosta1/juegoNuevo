@@ -12,6 +12,8 @@ export class Player {
     this.kills = 0;
     this.xVel = 0;
 
+    this.isDead = false;
+
     // Animación / sprite
     this.frameWidth = 64;
     this.frameHeight = 64;

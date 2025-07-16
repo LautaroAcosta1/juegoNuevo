@@ -95,23 +95,25 @@ io.on("connection", (socket) => {
     const target = players[targetId];
     const attacker = players[socket.id];
 
-    if (target && attacker) {
-      console.log(`💥 ${attacker.name} dañó a ${target.name}. Vida antes: ${target.life}`);
+    if (!target || !attacker) return;
 
-      target.life -= damage;  // ✅ asegurate que sea 'damage' y no '1' o '--'
+    // Evitar múltiples ejecuciones si el jugador ya está muerto
+    if (target.life <= 0) return;
 
-      console.log(`❤️ Vida restante de ${target.name}: ${target.life}`);
+    console.log(`💥 ${attacker.name} dañó a ${target.name}. Vida antes: ${target.life}`);
 
-      if (target.life <= 0) {
-        console.log(`☠️ ${attacker.name} mató a ${target.name}`);
-        attacker.kills++;
-        delete players[targetId];
-      }
+    target.life -= damage;
 
-      io.emit("updatePlayers", players);
-      io.emit("updateRanking", getTopPlayers());
+    if (target.life <= 0) {
+      console.log(`☠️ ${attacker.name} mató a ${target.name}`);
+      attacker.kills++;
+      delete players[targetId];
     }
+
+    io.emit("updatePlayers", players);
+    io.emit("updateRanking", getTopPlayers());
   });
+
 
   socket.on("playerLeft", () => {
     console.log("Jugador salió manualmente:", socket.id);

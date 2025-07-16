@@ -256,6 +256,7 @@ function updateBullets() {
     // ✅ Colisión contra el jugador local (daño recibido)
     if (b.owner !== player && circleRectCollision(b, player.getCollisionBox())) {
       bullets.splice(i, 1);
+      if (player.life <= 0) continue;
       player.life -= b.damage;
       if (player.life <= 0) {
         socket.emit("playerLeft"); // 🧠 Avisar al servidor que se fue
