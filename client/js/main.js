@@ -14,6 +14,26 @@ socket.on("connect", () => {
 const otherPlayers = {};
 
 socket.on("updatePlayers", (playersData) => {
+  // ✅ Verificamos si el jugador local fue eliminado
+  if (!playersData[socket.id]) {
+    alert("¡Moriste!");
+    window.location.reload();  // O podés mostrar un menú, etc.
+    return;
+  }
+
+  // ✅ Actualizamos los datos del jugador local
+  if (playersData[socket.id] && player) {
+    const localData = playersData[socket.id];
+    player.life = localData.life;
+    player.kills = localData.kills;
+    player.name = localData.name;
+    player.x = localData.x;
+    player.y = localData.y;
+    player.aimAngle = localData.aimAngle || 0;
+    player.facing = localData.facing;
+  }
+
+  // ✅ Actualizamos o creamos jugadores remotos
   for (const id in playersData) {
     if (id !== socket.id) {
       if (!otherPlayers[id]) {
@@ -24,7 +44,7 @@ socket.on("updatePlayers", (playersData) => {
           playersData[id].kills,
           playersData[id].life,
           playersData[id].name,
-          playersData[id].aimAngle || 0 // 👈 Añadir este valor aquí
+          playersData[id].aimAngle || 0
         );
       } else {
         const p = otherPlayers[id];
@@ -36,24 +56,33 @@ socket.on("updatePlayers", (playersData) => {
         p.aimAngle = playersData[id].aimAngle || 0;
         p.name = playersData[id].name;
       }
-    } 
+    }
+  }
+
+  // ✅ Limpiamos jugadores que se hayan ido (desconectados o muertos)
+  for (const id in otherPlayers) {
+    if (!playersData[id]) {
+      delete otherPlayers[id];
+    }
   }
 });
 
+
 socket.on("remoteBullet", (bulletData) => {
-  // Crear una bala como si fuera local, pero con un dummy owner
   const dummyOwner = otherPlayers[bulletData.ownerId];
-  if (!dummyOwner) return; // Asegurar que el jugador exista
+  if (!dummyOwner) return;
 
   bullets.push(new Bullet(
     bulletData.x,
     bulletData.y,
     bulletData.angle,
     bulletData.speed,
-    bulletData.damage,
-    dummyOwner
+    bulletData.radius,
+    dummyOwner,
+    bulletData.damage
   ));
 });
+
 
 socket.on("playerDisconnected", (id) => {
   delete otherPlayers[id];
@@ -159,21 +188,22 @@ canvas.addEventListener("mousedown", () => {
   const worldMouseY = camera.y + mouseY;
   const angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-  const bullet = new Bullet(player.gunTipX, player.gunTipY, angle, 6, 5, player);
+  const bullet = new Bullet(player.gunTipX, player.gunTipY, angle, 6, 5, player, 10);
   bullets.push(bullet);
 
-  // 🔧 Definimos bulletData para enviar por socket
   const bulletData = {
     x: bullet.x,
     y: bullet.y,
     angle: bullet.angle,
     speed: bullet.speed,
+    radius: bullet.radius,
     damage: bullet.damage,
     ownerId: socket.id
   };
 
   socket.emit("shootBullet", bulletData);
 });
+
 
 /*
 function updateEnemies() {
@@ -211,7 +241,7 @@ function updateBullets() {
     // ✅ Colisión contra el jugador local (daño recibido)
     if (b.owner !== player && circleRectCollision(b, player.getCollisionBox())) {
       bullets.splice(i, 1);
-      player.life--;
+      player.life -= b.damage;
       if (player.life <= 0) {
         alert("¡Perdiste!");
         window.location.reload();
@@ -219,23 +249,32 @@ function updateBullets() {
       continue;
     }
 
-    // ✅ Colisión contra jugadores remotos (daño causado)
+    // ✅ Colisión contra jugadores remotos (daño causado por el jugador local)
     for (const id in otherPlayers) {
       const remote = otherPlayers[id];
       if (b.owner === player && circleRectCollision(b, remote.getCollisionBox())) {
         bullets.splice(i, 1); // Quitar bala solo localmente
-
-        // Avisar al servidor que se dañó al jugador remoto
         socket.emit("playerHit", {
           targetId: id,
           damage: b.damage
         });
+        break;
+      }
+    }
 
-        break; // Salir del bucle, ya golpeó a un jugador
+    // 🧩 Simular visualmente las colisiones entre jugadores remotos
+    if (b.owner && b.owner !== player) {
+      for (const id in otherPlayers) {
+        const remote = otherPlayers[id];
+        if (b.owner !== remote && circleRectCollision(b, remote.getCollisionBox())) {
+          bullets.splice(i, 1); // Solo eliminar bala visualmente
+          break;
+        }
       }
     }
   }
 }
+
 
 function updateCamera() {
   if (!player) return; // <-- evita el error si player no está aún
@@ -308,7 +347,6 @@ function gameLoop(time = 0) {
       y: player.y,
       facing: player.facing,
       kills: player.kills,
-      life: player.life,
       name: player.name,
       aimAngle: angleGun
     });
