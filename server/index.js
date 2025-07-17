@@ -54,6 +54,7 @@ io.on("connection", (socket) => {
     y: 0,
     facing: 1,
     kills: 0,
+    coins: 0,
     life: 100,
     aimAngle: 0,
     name: "jugador"
@@ -95,25 +96,25 @@ io.on("connection", (socket) => {
     const target = players[targetId];
     const attacker = players[socket.id];
 
-    if (!target || !attacker) return;
+    if (target && attacker) {
+      console.log(`💥 ${attacker.name} dañó a ${target.name}. Vida antes: ${target.life}`);
 
-    // Evitar múltiples ejecuciones si el jugador ya está muerto
-    if (target.life <= 0) return;
+      target.life -= damage;  // ✅ asegurate que sea 'damage' y no '1' o '--'
 
-    console.log(`💥 ${attacker.name} dañó a ${target.name}. Vida antes: ${target.life}`);
+      io.emit("playerHitVisual", { targetId });
 
-    target.life -= damage;
+      console.log(`❤️ Vida restante de ${target.name}: ${target.life}`);
 
-    io.emit("playerHitVisual", { targetId });
+      if (target.life <= 0) {
+        console.log(`☠️ ${attacker.name} mató a ${target.name}`);
+        attacker.kills++;
+        attacker.coins += 1;
+        delete players[targetId];
+      }
 
-    if (target.life <= 0) {
-      console.log(`☠️ ${attacker.name} mató a ${target.name}`);
-      attacker.kills++;
-      delete players[targetId];
+      io.emit("updatePlayers", players);
+      io.emit("updateRanking", getTopPlayers());
     }
-    
-    io.emit("updatePlayers", players);
-    io.emit("updateRanking", getTopPlayers());
   });
 
 

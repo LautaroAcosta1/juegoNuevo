@@ -64,6 +64,7 @@ socket.on("updatePlayers", (playersData) => {
     const localData = playersData[socket.id];
     player.life = localData.life;
     player.kills = localData.kills;
+    player.coins = localData.coins;
     player.name = localData.name;
     player.x = localData.x;
     player.y = localData.y;
@@ -450,6 +451,11 @@ function gameLoop(time = 0) {
     ctx.font = "16px Arial";
     ctx.textAlign = "left";
     ctx.fillText(`Vida: ${player.life}`, x + 8, y + 15);
+
+    // 10. mostrar monedas en pantalla
+    ctx.fillStyle = "white";
+    ctx.font = "16px Arial";
+    ctx.fillText(`🪙 Monedas: ${player.coins}`, 20, 100);
   }
 
 

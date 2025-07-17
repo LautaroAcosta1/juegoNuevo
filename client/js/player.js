@@ -10,6 +10,7 @@ export class Player {
     this.radius = 20;
     this.life = 100;
     this.kills = 0;
+    this.coins = 0;
     this.xVel = 0;
 
     this.isDead = false;
