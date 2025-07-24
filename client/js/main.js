@@ -3,6 +3,7 @@ import { Player } from './player.js';
 import { Bullet } from './bullet.js';
 import { RemotePlayer } from './remotePlayer.js';
 import { BloodParticle } from './bloodParticle.js';
+import { weaponTypes } from './weapons.js';
 import { checkCollision, circleRectCollision } from './utils.js';
 
 const socket = io("http://localhost:3000");  // Cambia la URL si usás otro host o puerto
@@ -10,6 +11,21 @@ const socket = io("http://localhost:3000");  // Cambia la URL si usás otro host
 socket.on("connect", () => {
   console.log("Conectado con id:", socket.id);
 });
+
+
+
+
+socket.on("purchase_success", (data) => {
+  player.coins = data.coins;
+  player.activeWeapon = data.activeWeapon;
+  player.inventory = data.inventory;
+});
+
+
+socket.on("purchase_failed", (msg) => {
+  console.log("Compra fallida:", msg);
+});
+
 
 socket.on("playerHitVisual", ({ targetId }) => {
   const target = otherPlayers[targetId];
@@ -86,7 +102,8 @@ socket.on("updatePlayers", (playersData) => {
           playersData[id].kills,
           playersData[id].life,
           playersData[id].name,
-          playersData[id].aimAngle || 0
+          playersData[id].aimAngle || 0,
+          playersData[id].activeWeapon
         );
       } else {
         const p = otherPlayers[id];
@@ -97,6 +114,7 @@ socket.on("updatePlayers", (playersData) => {
         p.life = playersData[id].life;
         p.aimAngle = playersData[id].aimAngle || 0;
         p.name = playersData[id].name;
+        p.activeWeapon = playersData[id].activeWeapon
       }
     }
   }
@@ -213,11 +231,40 @@ images.player.onload = () => {
 document.addEventListener("keydown", (e) => keys[e.key] = true);
 document.addEventListener("keyup", (e) => keys[e.key] = false);
 
+let showShop = false;
 let showRanking = false;
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "r" || e.key === "R") {
     showRanking = !showRanking; // Alterna visibilidad
+  }
+
+  if (e.key === "b" || e.key === "B") {
+    showShop = !showShop;
+    console.log("tienda:", showShop);
+  }
+
+  if (showShop) {
+    if (e.key === "1") {
+      player.activeWeapon = "pistol"; // Gratis, arma inicial
+    } else if (e.key === "2") {
+      socket.emit("buy_weapon", "shotgun");
+    } else if (e.key === "3") {
+      socket.emit("buy_weapon", "sniper");
+    }
+  }
+
+  // Verifica si la tecla es un número del 1 al 9
+  const num = parseInt(e.key);
+  if (!isNaN(num) && num >= 1 && num <= 9) {
+    const index = num - 1;
+    const weaponName = player.inventory[index];
+
+    if (weaponName) {
+      // Cambiar arma activa localmente y notificar al servidor
+      player.activeWeapon = weaponName;
+      socket.emit("change_weapon", weaponName);
+    }
   }
 });
 
@@ -249,12 +296,6 @@ canvas.addEventListener("mousedown", () => {
     };
     socket.emit("shootBullet", bulletData);
   }
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "1") player.activeWeapon = "pistol";
-  if (e.key === "2") player.activeWeapon = "shotgun";
-  if (e.key === "3") player.activeWeapon = "sniper";
 });
 
 let bloodParticles = [];
@@ -329,6 +370,7 @@ function updateCamera() {
 
 let lastTime = 0;
 let rankingAlpha = 0;
+let shopAlpha = 1;
 function gameLoop(time = 0) {
   const deltaTime = time - lastTime;
   lastTime = time;
@@ -419,20 +461,11 @@ function gameLoop(time = 0) {
     ctx.lineTo(gunX - camera.x, gunY - camera.y);
     ctx.stroke();
 
-    // 🔫 Mostrar arma equipada
-    if (player) {
-      const weapon = player.getCurrentWeapon();
-      const x = 20;
-      const y = 20;
+    // mostrar arma actual
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "white";
 
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fillRect(x - 10, y - 10, 200, 50);
-
-      ctx.fillStyle = "#fff";
-      ctx.font = "16px Arial";
-      ctx.fillText(`Arma: ${weapon.name}`, x, y + 5);
-      ctx.fillText(`Daño: ${weapon.damage}`, x, y + 25);
-    }
+    ctx.fillText(`Arma actual: ${player.activeWeapon}`, 20, 120);
 
     // ❤️ 9. Barra de vida del jugador local
     const barWidth = 200;
@@ -456,9 +489,62 @@ function gameLoop(time = 0) {
     ctx.fillStyle = "white";
     ctx.font = "16px Arial";
     ctx.fillText(`🪙 Monedas: ${player.coins}`, 20, 100);
+
+    // 11. Mostrar inventario
+    ctx.fillText(`Inventario:`, 20, 150);
+
+    player.inventory.forEach((arma, index) => {
+      const yOffset = 170 + index * 20;
+      const seleccionada = arma === player.activeWeapon ? "🟩" : "⬛";
+      ctx.fillText(`${seleccionada} ${index + 1}. ${arma}`, 20, yOffset);
+    });
+
   }
 
+  // NOSTRAR TIENDA AL PRESIONAR "B"
+  if (shopAlpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = shopAlpha;
 
+    if (showShop) {
+      const shopX = canvas.width / 2 - 150;
+      const shopY = canvas.height / 2 - 100;
+      const boxWidth = 300;
+      const boxHeight = 200;
+      const padding = 10;
+
+      // Fondo
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(shopX, shopY, boxWidth, boxHeight);
+
+      // Título
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Tienda de armas", shopX + boxWidth / 2, shopY + 30);
+
+       // Opciones de armas
+      ctx.font = "14px Arial";
+      ctx.textAlign = "left";
+      const armas = [
+        `${weaponTypes.pistol.name} - ${weaponTypes.pistol.price} monedas`,
+        `${weaponTypes.shotgun.name} - ${weaponTypes.shotgun.price} monedas`,
+        `${weaponTypes.sniper.name} - ${weaponTypes.sniper.price} monedas`
+      ];
+
+      armas.forEach((text, i) => {
+        ctx.fillText(text, shopX + padding, shopY + 60 + i * 30);
+      });
+
+      // Instrucciones
+      ctx.font = "12px Arial";
+      ctx.fillText("Presiona 1, 2 o 3 para comprar", shopX + padding, shopY + boxHeight - 20);
+    }
+
+    ctx.restore();
+  }
+
+  // MOSTRAR RANKING AL PRECIONAR "R"
   if (showRanking && rankingAlpha < 1) {
     rankingAlpha += 0.02;
   } else if (!showRanking && rankingAlpha > 0) {

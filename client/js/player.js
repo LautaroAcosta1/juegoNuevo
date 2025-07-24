@@ -30,6 +30,7 @@ export class Player {
 
     // Armas
     this.activeWeapon = "pistol"; // 🔫 arma actual
+    this.inventory = ["pistol"];
     this.lastShotTime = 0;        // ⏲️ para cooldown
   }
 

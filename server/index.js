@@ -28,6 +28,12 @@ const PORT = process.env.PORT || 3000;
 // Tu endpoint para register, etc.
 const players = {};
 
+const weaponTypes = {
+  pistol: { name: "pistol", price: 0 },
+  shotgun: { name: "shotgun", price: 2 },
+  sniper: { name: "sniper", price: 4 },
+};
+
 io.on("connection", (socket) => {
 
   // funciones
@@ -55,10 +61,51 @@ io.on("connection", (socket) => {
     facing: 1,
     kills: 0,
     coins: 0,
+    activeWeapon: "pistol",
+    inventory: ["pistol"],
     life: 100,
     aimAngle: 0,
     name: "jugador"
   };
+
+  socket.on("change_weapon", (weaponName) => {
+    const player = players[socket.id];
+    if (!player) return;
+
+    // Verificar que esa arma esté en el inventario del jugador
+    if (player.inventory.includes(weaponName)) {
+      player.activeWeapon = weaponName;
+    }
+  });
+
+
+  socket.on("buy_weapon", (weaponName) => {
+    const player = players[socket.id];
+    const weapon = weaponTypes[weaponName];
+
+    if (!weapon) return;
+
+    // ya tiene esta arma?
+    if (player.inventory.includes(weaponName)) {
+      socket.emit("purchase_failed", "Ya tenés esta arma");
+      return;
+    }
+
+    if (player.coins >= weapon.price) {
+      player.coins -= weapon.price;
+      player.inventory.push(weaponName);         // ✅ agregar al inventario
+      player.activeWeapon = weaponName;          // la selecciona como arma activa
+
+      io.to(socket.id).emit("purchase_success", {
+        coins: player.coins,
+        activeWeapon: weaponName,
+        inventory: player.inventory,             // ✅ enviar inventario actualizado
+      });
+    } else {
+      socket.emit("purchase_failed", "Monedas insuficientes");
+    }
+  });
+
 
   socket.on("playerJoined", ({ name, color }) => {
     if (players[socket.id]) {
